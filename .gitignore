@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.venv/
+venv/
+env/
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Secrets — NEVER commit
+.env
+.env.local
+*.token
+secrets.yaml
+**/HF_TOKEN
+hf_token.txt
+
+# Generated transcript outputs (anything ending in _transcript/)
+*_transcript/
+**/output*/
+**/diarization.json
+**/diarization_pyannote.json
+# Don't ignore the examples/expected_output/ which we explicitly ship
+!examples/expected_output/
+
+# Large model artifacts (downloaded at runtime; not committed)
+*.bin
+*.mlmodelc/
+*.mlpackage/
+*.rnnn
+*.pt
+*.ckpt
+
+# Logs
+*.log

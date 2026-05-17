@@ -1,0 +1,20 @@
+{
+  "language": "en",
+  "num_speakers": 1,
+  "segments": [
+    {
+      "start": 0.0,
+      "end": 10.4,
+      "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+      "speaker": "SPEAKER_00"
+    }
+  ],
+  "merged": [
+    {
+      "start": 0.0,
+      "end": 10.4,
+      "text": "And so, my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+      "speaker": "SPEAKER_00"
+    }
+  ]
+}

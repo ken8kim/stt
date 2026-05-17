@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+"""stt — standalone CLI wrapper.
+
+Runs the same pipeline as the Claude Code skill, but as a plain command-line tool.
+After transcription + diarization, speaker labels stay generic (SPEAKER_00, SPEAKER_01).
+To map them to human names, use:
+
+    stt-relabel <output>.json --mapping '{"SPEAKER_00":"Alice","SPEAKER_01":"Bob"}'
+
+Usage:
+    stt audio.m4a                              # default pipeline
+    stt video.mp4 --speakers 2 --prompt "..."  # 2 speakers, prompt biasing
+    stt audio.wav --no-preprocess              # skip ffmpeg preprocessing
+    stt audio.wav --no-diarize                 # transcribe only
+
+Environment:
+    HF_TOKEN — set for best-quality diarization (pyannote 3.1)
+    STT_ROOT — override the skill scripts dir (default: dir containing this file/../skill)
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+
+def find_skill_dir() -> Path:
+    env = os.environ.get("STT_ROOT")
+    if env:
+        p = Path(env).expanduser().resolve()
+        if (p / "stt.py").exists():
+            return p
+        sys.exit(f"STT_ROOT={p} does not contain stt.py")
+    # Try common locations
+    candidates = [
+        Path(__file__).resolve().parent.parent / "skill",
+        Path.home() / ".claude" / "skills" / "stt",
+        Path("/usr/local/share/stt/skill"),
+    ]
+    for c in candidates:
+        if (c / "stt.py").exists():
+            return c
+    sys.exit(
+        "Could not locate skill directory. Set STT_ROOT to the dir containing stt.py."
+    )
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(
+        prog="stt",
+        description="Speech-to-text pipeline (whisper.cpp + Core ML + pyannote).",
+    )
+    ap.add_argument("audio", type=Path, help="Audio or video file")
+    ap.add_argument(
+        "-o", "--output-dir", type=Path, default=Path.cwd(),
+        help="Output directory (default: current dir)",
+    )
+    ap.add_argument("--prompt", default="", help="Prompt-biasing string for proper nouns / jargon")
+    ap.add_argument("-l", "--language", default="en", help="ISO 639-1 language code (default: en)")
+    ap.add_argument("-s", "--speakers", type=int, default=None, help="Force N speakers (default: auto)")
+    ap.add_argument("--no-preprocess", action="store_true", help="Skip ffmpeg preprocessing")
+    ap.add_argument("--no-diarize", action="store_true", help="Skip diarization, transcribe only")
+    args = ap.parse_args()
+
+    skill_dir = find_skill_dir()
+    cmd = [
+        sys.executable, str(skill_dir / "stt.py"),
+        "--input", str(args.audio.expanduser().resolve()),
+        "--output-dir", str(args.output_dir.expanduser().resolve()),
+        "--language", args.language,
+    ]
+    if args.prompt:
+        cmd += ["--prompt", args.prompt]
+    if args.speakers:
+        cmd += ["--num-speakers", str(args.speakers)]
+    if args.no_preprocess:
+        cmd.append("--no-preprocess")
+    if args.no_diarize:
+        cmd.append("--no-diarize")
+
+    sys.exit(subprocess.call(cmd))
+
+
+if __name__ == "__main__":
+    main()
