@@ -1,6 +1,6 @@
 # stt
 
-Fast, local speech-to-text + speaker diarization on Apple Silicon.
+Fast, local speech-to-text + speaker diarization. Runs on macOS, Linux, or Windows. Uses your GPU when available — Core ML + Metal on Apple Silicon, CUDA on NVIDIA, ROCm on AMD/Linux, Vulkan as cross-platform fallback.
 
 ```
 51-minute meeting → fully transcribed + speaker-attributed in ~2 minutes
@@ -63,19 +63,45 @@ Same 51-minute meeting recording, M5 Pro 48GB:
 
 ## Install
 
+### macOS / Linux / WSL
+
 ```bash
 git clone https://github.com/ken8kim/stt.git
 cd stt
-brew install ffmpeg cmake
-bash skill/check_setup.sh    # builds whisper.cpp, downloads model, compiles Core ML encoder
+bash skill/check_setup.sh
 ```
 
-First run takes 10–30 minutes for downloads and Core ML compilation. After that it's all local — disconnect your network and it still works.
+`check_setup.sh` auto-detects your OS + GPU and does the right thing:
 
-Requirements:
-- macOS on Apple Silicon (M1 or later)
-- Xcode (full install, not just Command Line Tools — `coremlc` lives there)
-- Python 3.10+
+| Detected | What it builds | PyTorch wheels |
+|---|---|---|
+| macOS Apple Silicon | whisper.cpp + Core ML + Metal | default (MPS) |
+| Linux + NVIDIA | whisper.cpp + CUDA | `cu121` |
+| Linux + AMD (ROCm) | whisper.cpp + HIP/ROCm | `rocm6.0` |
+| Linux + Vulkan | whisper.cpp + Vulkan | CPU (PyTorch has no Vulkan) |
+| Anything else | whisper.cpp CPU-only | CPU |
+
+### Windows (native)
+
+```powershell
+git clone https://github.com/ken8kim/stt.git
+cd stt
+.\skill\check_setup.ps1
+```
+
+The PowerShell setup uses winget (or chocolatey) to install ffmpeg + cmake + git, then builds whisper.cpp with CUDA if NVIDIA is detected, otherwise Vulkan, otherwise CPU. ROCm is not supported on Windows as of 2026 — use WSL2 for AMD acceleration.
+
+### Requirements per platform
+
+| Platform | Required | Optional |
+|---|---|---|
+| macOS Apple Silicon | Python 3.10+, ffmpeg, cmake, **Xcode** (for Core ML `coremlc`) | Command Line Tools is *not* enough |
+| Linux + NVIDIA | Python 3.10+, ffmpeg, cmake, **CUDA toolkit ≥11.8** (`nvcc`) | cuDNN improves perf |
+| Linux + AMD | Python 3.10+, ffmpeg, cmake, **ROCm SDK ≥6.0** (`hipcc`) | gfx target auto-detected |
+| Windows native | Python 3.10+, **CUDA toolkit** (NVIDIA path), MSVC build tools | winget or chocolatey speeds setup |
+| WSL2 | Same as Linux | Recommended for AMD on Windows hosts |
+
+First run takes 10–30 minutes for model downloads + Core ML/CUDA compilation. After that it's all local — disconnect your network and it still works.
 
 ## Usage
 
@@ -136,7 +162,10 @@ The skill detects `HF_TOKEN` and switches to pyannote automatically. Weights are
 - **Never pass `--no-fallback` to `whisper-cli`.** It disables temperature fallback. On silent intros, the model gets stuck repeating one word forever. Verified: 3,215 lines of "Clip."
 - **Pyannote 3.1 with `num_speakers=2` is broken for in-person meeting audio.** Both speakers picked up by the same mic at similar levels confuse the clustering — it labels 95%+ of the audio as one speaker. Use `min_speakers=2, max_speakers=4` and merge tiny clusters in post.
 - **Pyannote-audio 4.x silently added a third gated model dependency.** Even with terms accepted on `speaker-diarization-3.1` and `segmentation-3.0`, you'll get 401 on `speaker-diarization-community-1`. The error message doesn't tell you this clearly.
-- **`coremlc` is in Xcode, not Command Line Tools.** If you only have the CLT, the Core ML conversion step fails with "utility not found." Either install Xcode or use the GGML model alone (loses Neural Engine acceleration).
+- **`coremlc` is in Xcode, not Command Line Tools.** If you only have the CLT on macOS, the Core ML conversion step fails with "utility not found." Either install Xcode or run with the GGML model alone (loses Neural Engine acceleration but Metal still works).
+- **PyTorch ROCm presents itself as CUDA.** On Linux + AMD, `torch.cuda.is_available()` returns `True`. Same code path — don't write a separate ROCm branch.
+- **`whisper.cpp` Vulkan backend is mature; PyTorch Vulkan isn't.** Vulkan-only systems accelerate the transcription step but fall back to CPU for diarization (still way better than CPU-only end-to-end).
+- **AMD ROCm doesn't work on Windows yet (as of 2026).** Windows + AMD GPU → use WSL2 (the Linux setup script runs unchanged inside WSL).
 - **mlx-whisper without `condition_on_previous_text=False` is a hallucination factory.** With it on, a bad output becomes the prompt for the next chunk and the model spirals. Turn it off.
 
 ## Architecture
@@ -152,7 +181,9 @@ input (audio/video)
 [silero-vad]  trim silent intro/outro
    │
    ▼
-[whisper.cpp + Core ML]  large-v3-turbo, beam 5, best-of 5, temperature fallback
+[whisper.cpp]  large-v3-turbo, beam 5, best-of 5, temperature fallback
+              backend: Core ML (macOS) | CUDA (NVIDIA) | ROCm (AMD/Linux) |
+                       Vulkan (cross-platform) | CPU
    │
    ▼
 [strip_hallucinations]  annotation markers + repetition loops + filler-word runs
@@ -207,10 +238,11 @@ Issues + PRs welcome. The whole thing is ~1,000 lines of Python.
 
 Useful directions:
 
-- Linux/Windows portability (currently macOS-only due to Core ML)
 - WhisperX integration for word-level timestamps
 - VAD-based speaker pre-segmentation (improves pyannote on tough audio)
-- A test fixture of 5–10 short public-domain clips with expected outputs
+- A test fixture of 5–10 short public-domain clips with expected outputs across platforms
+- Native PowerShell module instead of `.ps1` script
+- AMD ROCm support on Windows once AMD ships it
 
 ## License
 

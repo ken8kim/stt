@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.2.0 — Cross-platform support
+
+- `platform_detect.py` — auto-detect OS (macOS/Linux/Windows) + GPU (MPS/CUDA/ROCm/Vulkan/CPU)
+- Unified `check_setup.sh` (Linux + macOS + WSL) — picks cmake flags + PyTorch wheel index per platform
+- New `check_setup.ps1` for native Windows (winget/choco-based installs)
+- `diarize.py` now picks `cuda` > `mps` > `cpu` automatically; PyTorch ROCm shares the CUDA code path
+- `stt.py` handles `whisper-cli.exe` on Windows and `%LOCALAPPDATA%` for caches
+- README rewritten with multi-platform install matrix and per-platform requirements
+
 ## v0.1.0 — Initial release
 
 - whisper.cpp + Core ML + ggml-large-v3-turbo transcription pipeline

@@ -25,10 +25,21 @@ import sys
 import time
 from pathlib import Path
 
-WHISPER_CPP_DIR = Path.home() / "whisper.cpp"
-WHISPER_BIN = WHISPER_CPP_DIR / "build" / "bin" / "whisper-cli"
+WHISPER_CPP_DIR = Path(os.environ.get("WHISPER_CPP_DIR") or Path.home() / "whisper.cpp")
+# whisper-cli on POSIX, whisper-cli.exe on Windows (sometimes under build/bin/Release/)
+_WHISPER_BIN_CANDIDATES = [
+    WHISPER_CPP_DIR / "build" / "bin" / "whisper-cli",
+    WHISPER_CPP_DIR / "build" / "bin" / "whisper-cli.exe",
+    WHISPER_CPP_DIR / "build" / "bin" / "Release" / "whisper-cli.exe",
+]
+WHISPER_BIN = next((p for p in _WHISPER_BIN_CANDIDATES if p.exists()), _WHISPER_BIN_CANDIDATES[0])
 WHISPER_MODEL = WHISPER_CPP_DIR / "models" / "ggml-large-v3-turbo.bin"
-RNN_MODEL = Path.home() / ".cache" / "rnnoise-models" / "sh.rnnn"
+# RNN cache: ~/.cache on POSIX, %LOCALAPPDATA% on Windows
+if sys.platform == "win32":
+    _RNN_BASE = Path(os.environ.get("LOCALAPPDATA", str(Path.home())))
+else:
+    _RNN_BASE = Path.home() / ".cache"
+RNN_MODEL = _RNN_BASE / "rnnoise-models" / "sh.rnnn"
 DIARIZE_SCRIPT = Path(__file__).parent / "diarize.py"
 VAD_TRIM_SCRIPT = Path(__file__).parent / "vad_trim.py"
 

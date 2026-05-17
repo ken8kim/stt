@@ -1,15 +1,22 @@
 ---
 name: stt
-description: Speech-to-text pipeline for long-form audio/video on Apple Silicon. Preprocesses audio (denoise + loudnorm), transcribes with whisper.cpp + Core ML (large-v3-turbo, GPU+Neural Engine), diarizes speakers locally (pyannote.audio with non-gated fallback, then Resemblyzer), auto-attributes speaker names from conversation content via LLM, and produces a full set of output files (clean.wav, transcript.txt, attributed.txt, per-speaker txts, json, srt). Use when the user asks to "transcribe", "stt", "speech to text", "convert audio to text", "diarize", or hands over an audio/video file (.m4a, .mp3, .wav, .flac, .mp4, .mov, .webm).
+description: Cross-platform speech-to-text pipeline for long-form audio/video. Preprocesses audio (denoise + loudnorm), transcribes with whisper.cpp + best available GPU backend (Core ML on Apple Silicon, CUDA on NVIDIA, ROCm on AMD/Linux, Vulkan elsewhere, CPU as fallback), diarizes speakers locally (pyannote.audio with Resemblyzer fallback), auto-attributes speaker names from conversation content via LLM, and produces a full set of output files (clean.wav, transcript.txt, attributed.txt, per-speaker txts, json, srt). Use when the user asks to "transcribe", "stt", "speech to text", "convert audio to text", "diarize", or hands over an audio/video file (.m4a, .mp3, .wav, .flac, .mp4, .mov, .webm).
 ---
 
 # stt — Speech-to-Text Pipeline
 
 Full pipeline: audio/video → preprocessed → transcribed → diarized → speaker-attributed.
 
-Optimized for Apple Silicon (M1/M2/M3/M4/M5). Uses whisper.cpp + Core ML for transcription
-(best speed/quality on Mac), pyannote.audio locally for diarization, with a Resemblyzer
-fallback if pyannote weights aren't available.
+Runs on macOS, Linux, and Windows. Auto-detects the best GPU backend via `platform_detect.py`:
+
+| Platform | Whisper backend | Diarization device |
+|---|---|---|
+| macOS Apple Silicon | Core ML + Metal | MPS |
+| Linux + NVIDIA | CUDA | CUDA |
+| Linux + AMD | HIP/ROCm | CUDA (PyTorch ROCm uses CUDA API) |
+| Windows + NVIDIA | CUDA | CUDA |
+| Vulkan-only | Vulkan | CPU (no PyTorch Vulkan) |
+| No GPU | CPU | CPU |
 
 ## Pipeline
 
@@ -151,6 +158,9 @@ runtime. Use markdown links for files.
   attribution using the transcript content alone.
 - **Long audio**: Anything > 30 min, run whisper.cpp in background and use
   Monitor for completion. Do not block on it.
+- **Setup script choice**: on macOS/Linux/WSL use `bash skill/check_setup.sh`. On native
+  Windows use `.\skill\check_setup.ps1` instead. Both call the shared `platform_detect.py`
+  to pick the right backend.
 
 ## Args (optional flags via /stt)
 
@@ -164,6 +174,9 @@ runtime. Use markdown links for files.
 - `--skip-attribution`: keep generic SPEAKER_NN labels, no LLM naming step
 
 ## Files in this skill
+
+- `platform_detect.py` — detect OS + GPU, emit cmake flags + PyTorch index
+- `check_setup.sh` / `check_setup.ps1` — auto-install/build everything for the detected platform
 
 - `SKILL.md` (this file)
 - `stt.py` — main pipeline

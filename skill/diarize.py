@@ -40,8 +40,15 @@ def try_pyannote_with_token(audio: Path, num_speakers: int | None) -> list[dict]
         pipeline = Pipeline.from_pretrained(
             "pyannote/speaker-diarization-3.1", token=token
         )
-        if torch.backends.mps.is_available():
+        # Pick best device: CUDA covers NVIDIA + PyTorch ROCm (same API surface).
+        if torch.cuda.is_available():
+            pipeline.to(torch.device("cuda"))
+            print(f"  → using CUDA/ROCm GPU", file=sys.stderr)
+        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
             pipeline.to(torch.device("mps"))
+            print(f"  → using MPS (Apple) GPU", file=sys.stderr)
+        else:
+            print(f"  → CPU (no GPU acceleration available for PyTorch)", file=sys.stderr)
         if num_speakers:
             kwargs = {"min_speakers": num_speakers, "max_speakers": num_speakers + 2}
         else:
@@ -105,7 +112,9 @@ def try_pyannote_community(audio: Path, num_speakers: int | None) -> list[dict] 
         pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-community-1")
         if pipeline is None:
             return None
-        if torch.backends.mps.is_available():
+        if torch.cuda.is_available():
+            pipeline.to(torch.device("cuda"))
+        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
             pipeline.to(torch.device("mps"))
         kwargs = {"num_speakers": num_speakers} if num_speakers else {}
         diar = pipeline(str(audio), **kwargs)
