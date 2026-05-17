@@ -18,7 +18,7 @@ It wasn't.
 
 The first thing I tried — `faster-whisper medium` on CPU + a speaker-embedding clustering library — ran for **75 minutes** and produced a "diarized" transcript where one speaker got 1292 segments and the other got 3. Useless.
 
-I switched to `mlx-whisper large-v3` on the Mac GPU. 2 minutes 12 seconds — much better. But it mangled "ClipMyHorse TV" into "Clip My Walls TV" and "ESPN" into "Sims ESPN." Speed without accuracy is also useless.
+I switched to `mlx-whisper large-v3` on the Mac GPU. 2 minutes 12 seconds — much better. But it mangled domain-specific proper nouns into wrong words ("Sims ESPN," company names hallucinated into other phrases). Speed without accuracy is also useless.
 
 `whisper.cpp` with Core ML and the new `large-v3-turbo` model finally hit the sweet spot — **69 seconds, proper nouns intact** — but I learned the hard way that passing `--no-fallback` causes the model to get stuck on silent intros and produce 3,215 consecutive lines of the word "Clip."
 
